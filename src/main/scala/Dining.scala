@@ -128,10 +128,15 @@ class DinningRoom(val noOfMember: Int) extends Actor {
 }
 
 object ActorApp extends App {
+  assert(args.length == 2)
+  val nMember = args(0).toInt
+  val nSecond = args(1).toInt
+  assert(nMember >= 3)
+  assert(nSecond > 5)
   val system = ActorSystem("system")
-  val room = system.actorOf(Props(new DinningRoom(5)), "dinningRoom")
+  val room = system.actorOf(Props(new DinningRoom(nMember)), "dinningRoom")
   room ! "start"
-  for(i <- 1 to 10) {
+  for(i <- 1 to nSecond) {
 	Thread.sleep(1000)
     println(s"##### ${i} #####")
 	room ! "tick"
