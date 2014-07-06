@@ -109,7 +109,7 @@ class DinningRoom(val noOfMember: Int) extends Actor {
   val chopSticks = for(i <- 1 to noOfMember) yield(context.actorOf(Props(new ChopStick(i))))
   
   val members = for(i <- 1 to noOfMember) yield(context.actorOf(Props(new Philosopher(i,
-	if(i==1) chopSticks(chopSticks.length-1).path else chopSticks(i-1).path,
+        chopSticks(i-1).path,
 	if(i==noOfMember) chopSticks(0).path else chopSticks(i).path
   ))))
 
