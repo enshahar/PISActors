@@ -42,7 +42,7 @@ tags:
 
 먼저 젓가락을 구현해보자. 여러가지 방법이 있겠지만, 젓가락 자신이 어느 철학자에게 속했는지를 표시하는 변수 하나를 사용하고, 메시지로는 젓가락 요청과 젓가락 내려놓기 메시지를 만든다. 다음 소스코드를 보라.
 
-```
+```scala
 class ChopStick(val index:Int) extends Actor {
   override def preStart() {	println(s"Chopstick ${index} on the table") }
 
@@ -76,7 +76,7 @@ class ChopStick(val index:Int) extends Actor {
 ## 철학자 액터
 철학자는 젓가락을 두개 받아야 한다. 젓가락을 두개 받으려면 여러가지 방법이 있겠지만, 생성자 인자로 만들었다. 이때 `ActorRef`를 사용하는 것이 정석(?)이겠지만, 그냥 `ActorPath`를 받게 만들어 보았다. 이렇게 만든 철학자 액터 시작부분은 다음과 같다.
 
-```
+```scala
 class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) extends Actor {
   override def preStart() {
 	println(s"Philosopher ${index}[${self.path}] entered. Given left(${leftChopStick}) and right(${rightChopStick}).")
@@ -85,7 +85,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
 철학자는 앞에서 이야기한 각 단계를 거쳐야 한다. 각 단계를 상태로 만들기 위해 변수를 추가하고, 상태를 표시하기 위해 열거형(enumeration)을 하나 만든다. 처음 시작 상태는 왼쪽 젓가락을 기다리는 상태이다.
 
-```
+```scala
   object Status extends Enumeration {
 	type Status = Value
 	val WaitLeft, WaitRight, Eating, ReleaseRight, ReleaseLeft = Value
@@ -99,7 +99,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
 먼저 시작 메시지를 받으면, 젓가락을 집어들기 위해 왼쪽 젓가락에 요청을 보낸다.
 
-```
+```scala
   def receive = { 
     case "start" => // 시작 메시지. 중앙 클럭(또는 코디)에게서 받음
       println(s"Philosopher ${index} waiting left chopstick)")
@@ -108,7 +108,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
 틱을 받으면 현재 상태에 따라 적절히 다음 상태로 진행한다.
 
-```
+```scala
 	case "tick" => { // 틱 메시지. 코디에게서 받음
 		if(status == WaitLeft) { // 왼쪽 대기상태에 시간만 속절없이...
 			println(s"Philosopher ${index} thinking. (wait left chopstick)")
@@ -136,7 +136,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
 `incWaiting()`은 대기상태로 1초가 지날 때마다 카운터를 증가해 가면서 아사 여부를 판정하는 것이다. 아사판정 기준은 `STARVING_THRES`라는 변수에 넣어둔다.
 
-```
+```scala
   def incWaiting() {
 	waitingTime += 1
 	if(waitingTime > STARVING_THRES)
@@ -147,7 +147,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 ```
 
 젓가락을 집어드는데 성공하는 경우나 내려놓는데 성공(내려놓는데 실패해서는 안되겠지만)에는 그에 따라 다음 상태로 이동한다.
-```
+```scala
 	case "leftGot" => {
 		status = WaitRight
 		println(s"Philosopher ${index} got left chopstick.")
@@ -179,7 +179,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
 위 1,2는 꼭 코디에서 할 필요가 없기는 하지만, 코디가 브로드캐스팅하려면 어차피 모든 액터에 대한 참조를 보관해야 하므로, 코디에서 만드는 편이 좋다. 코디 액터의 이름은 DinningRoom이라고 붙였다.
 
-```
+```scala
 class DiningRoom(val noOfMember: Int) extends Actor {
   assert(noOfMember >= 2)
   
@@ -219,7 +219,7 @@ class DiningRoom(val noOfMember: Int) extends Actor {
 
 인자를 두개 받게 만들었다. 첫번째는 전체 철학자 인원수이고(3이상), 두번째 인자는 몇초동안 실행할 것인가(반복회수, 5이상)이다. 오류체크는 그냥 assert로 했고, 문자열 정수 변환시 발생하는 오류도 특별히 잡지 않았다. 더 친절하게 해 줄 수도 있지만 그게 목적이 아니니까.
 
-```
+```scala
 object ActorApp extends App {
   assert(args.length == 2)
   val nMember = args(0).toInt
@@ -401,7 +401,7 @@ Philosopher 2 waiting for 10 second. Starving!!!
 
 초기상태를 생각하는 상태로 만들기 위해 `Status` 열거형에 `Thinking`을 추가한다. 그리고, 그 상태에 진입할 때 최대 5초까지 생각하도록 난수를 넣었다.
 
-```
+```scala
 class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) extends Actor {
   override def preStart() {
     println(s"Philosopher ${index}[${self.path}] entered. Given left(${leftChopStick}) and right(${rightChopStick}).")
