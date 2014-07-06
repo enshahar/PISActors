@@ -1,4 +1,4 @@
-package Dinning
+package Dinning2
 
 import akka.actor._
 import scala.util.Random
@@ -21,7 +21,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
   var status = Thinking
   var eatingTime = 0
   var waitingTime = 0
-  var thinkingTime = _
+  var thinkingTime = 0
   
   def incWaiting() {
     waitingTime += 1
@@ -49,7 +49,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
 
   def receive = { 
     case "start" =>  {
-      enterThinking()
+      enterThinkingOrGetLeft()
     }
     case "tick" => {
       if(status == Thinking) {
@@ -95,7 +95,7 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
       context.actorSelection(leftChopStick) ! "leftRelease"
     }
     case "leftReleased" => {
-      enterThinking()
+      enterThinkingOrGetLeft()
     }
   }
 }
