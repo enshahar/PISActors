@@ -1,4 +1,4 @@
-package Dinning2
+package Dinning3
 
 import akka.actor._
 import scala.util.Random
@@ -8,17 +8,10 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
     println(s"Philosopher ${index}[${self.path}] entered. Given left(${leftChopStick}) and right(${rightChopStick}).")
   }
 
-  object Status extends Enumeration {
-    type Status = Value
-    val Thinking, WaitLeft, WaitRight, Eating, ReleaseRight, ReleaseLeft = Value
-  }
-  import Status._
-  
   val STARVING_THRES = 5
   val EATING_THRES = 3
   val THINKING_THRES = 5
 
-  var status = Thinking
   var eatingTime = 0
   var waitingTime = 0
   var thinkingTime = 0
@@ -32,8 +25,8 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
   }
   
   def enterLeftWaiting() {
-    status = WaitLeft
-    println(s"Philosopher ${index} waiting left chopstick)")
+    context.become(waitingLeft)
+    println(s"Philosopher ${index} waiting left chopstick")
     context.actorSelection(leftChopStick) ! "leftRequest"
   }
 
@@ -41,89 +34,93 @@ class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) 
     thinkingTime = util.Random.nextInt(THINKING_THRES)
     if(thinkingTime == 0)
       enterLeftWaiting()
-    else  {
-      status = Thinking
-      println(s"Philosopher ${index} thinking")
-    }
+    else
+      context.become(thinking)
   }
 
   def receive = { 
-    case "start" =>  {
-      enterThinkingOrGetLeft()
-    }
-    case "tick" => {
-      if(status == Thinking) {
-        thinkingTime -= 1
-        if(thinkingTime == 0) {
-          enterLeftWaiting()
-        }
-        else
-          println(s"Philosopher ${index} thinking")
-      } else if(status == WaitLeft) {
-        println(s"Philosopher ${index} thinking. (wait left chopstick)")
-        incWaiting()
-        context.actorSelection(leftChopStick) ! "leftRequest"
-      } else if(status == WaitRight) {
+    case "start" => enterThinkingOrGetLeft()
+  }
+  
+  def thinking: Receive = {
+    case "tick" =>
+      thinkingTime -= 1
+      if(thinkingTime == 0)
+        enterLeftWaiting()
+      else
+        println(s"Philosopher ${index} thinking")
+  }
+  
+  def waitingLeft: Receive = {
+    case "leftGot" =>
+      println(s"Philosopher ${index} got left chopstick.")
+      context.become(waitingRight)
+    
+    case "tick" =>
+      println(s"Philosopher ${index} thinking. (wait left chopstick)")
+      incWaiting()
+      context.actorSelection(leftChopStick) ! "leftRequest"
+  }
+  
+  def waitingRight: Receive = {
+    case "rightGot" =>
+      waitingTime = 0
+      eatingTime = 0
+      context.become(eating)
+      println(s"Philosopher ${index} got all chopsticks. start eating")
+      
+    case "tick" =>
         println(s"Philosopher ${index} thinking. (wait right chopstick)")
         incWaiting()
         context.actorSelection(rightChopStick) ! "rightRequest"
-      } else if(status == Eating) {
+  }
+  
+  def eating: Receive = {
+    case "tick" =>
         eatingTime += 1
         println(s"Philosopher ${index} eating. For ${eatingTime} seconds.")
         if(eatingTime >= EATING_THRES) {
-          eatingTime = 0
-          status = ReleaseRight
+          context.become(releasingRight)
           println(s"Philosopher ${index} releasing right chopstick")
           context.actorSelection(rightChopStick) ! "rightRelease"
         }
-      } else { 
-        // do nothing while releasing chopsticks
-      }    
-    }
-    case "leftGot" => {
-      status = WaitRight
-      println(s"Philosopher ${index} got left chopstick.")
-    }
-    case "rightGot" => {
-      status = Eating
-      waitingTime = 0
-      println(s"Philosopher ${index} got all chopsticks. start eating")
-    }
-    case "rightReleased" => {
-      status = ReleaseLeft
+  }
+  
+  def releasingRight: Receive = {
+    case "rightReleased" =>
+      context.become(releasingLeft)
       println(s"Philosopher ${index} releasing left chopstick")
       context.actorSelection(leftChopStick) ! "leftRelease"
-    }
-    case "leftReleased" => {
-      enterThinkingOrGetLeft()
-    }
+  }
+  
+  def releasingLeft: Receive = {
+    case "leftReleased" => enterThinkingOrGetLeft()
   }
 }
 
 class ChopStick(val index:Int) extends Actor {
   override def preStart() {  println(s"Chopstick ${index} on the table") }
 
-  var occupied = false
-  
+  // 기본 receive(미사용 상태)  
   def receive = { 
-  case "leftRequest" => 
-    if(!occupied) { 
+    case "leftRequest" => 
+      context.become(occupiedReceive, false)
       sender ! "leftGot"
-      occupied = true
-    }
-  case "rightRequest" => 
-    if(!occupied) { 
+      
+    case "rightRequest" => 
+      context.become(occupiedReceive, false)
       sender ! "rightGot"
-      occupied = true
-    }
-  case "leftRelease" => 
-    assert(occupied)
-    sender ! "leftReleased"
-    occupied = false
-  case "rightRelease" => 
-    assert(occupied)
-    sender ! "rightReleased"
-    occupied = false
+  }
+  
+  // 사용중인 경우 receive
+  def occupiedReceive:Receive = {
+    case "leftRelease" => 
+      context.unbecome
+      sender ! "leftReleased"
+      
+    case "rightRelease" => 
+      context.unbecome
+      sender ! "rightReleased"
   }
 }
 
@@ -137,6 +134,9 @@ class DinningRoom(val noOfMember: Int) extends Actor {
         if(i==noOfMember) chopSticks(0).path else chopSticks(i).path
   ))))
 
+  val router = akka.routing.Router(akka.routing.BroadcastRoutingLogic(),   
+                                  (members++chopSticks).map(akka.routing.ActorRefRoutee(_)))
+  
   override def preStart() {
     println(s"Room ${self.path} created")
   }
@@ -144,9 +144,9 @@ class DinningRoom(val noOfMember: Int) extends Actor {
   def receive = { 
     case "start" => { 
       println("START!")
-      Random.shuffle(members).foreach(x => x ! "start")
+      router.route("start", sender())
     }
-    case "tick" => Random.shuffle(members).foreach(x => x ! "tick")
+    case "tick" => router.route("tick", sender())
     case "end" => println("FINISH!")
   }
 }
