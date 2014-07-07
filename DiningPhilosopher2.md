@@ -22,7 +22,7 @@ tags:
 
 `become`을 사용하기로 하면, 더이상 상태 변수가 필요 없다. 케이스문을 복사해서 두가지로 나누자. 하나는 미사용상태인 젓가락의 메시지 처리 함수이고 다른 하나는 사용상태인 젓가락의 메시지 처리 함수로 나눈다.
 
-```
+```scala
 class ChopStick(val index:Int) extends Actor {
   override def preStart() {  println(s"Chopstick ${index} on the table") }
 
@@ -60,7 +60,7 @@ class ChopStick(val index:Int) extends Actor {
 
 상태 변수 status를 없애고 차근차근 become을 사용해 변경하면 클래스를 다음과 같이 정리할 수 있다.
 
-```
+```scala
 class Philosopher(index:Int, leftChopStick:ActorPath, rightChopStick:ActorPath) extends Actor {
   override def preStart() {
     println(s"Philosopher ${index}[${self.path}] entered. Given left(${leftChopStick}) and right(${rightChopStick}).")
@@ -182,22 +182,22 @@ Router(logic: RoutingLogic, routees: IndexedSeq[Routee] = ...)`가 있다.
 * 이 생성자의 두번째 인자는 `IndexedSeq[Routee]`이다. `Routee` 문서에서 서브클래스를 찾아보면 `ActorRefRoutee`이 있다. 액터를 넣어야 하니까 이거면 될것 같다. `IndexedSeq`는 벡터나 배열이면 된다. 
 
 일단 라우터를 만드는 부분을 빼서 살펴보면 다음과 같다.
-```
+```scala
   val router = akka.routing.Router(akka.routing.BroadcastRoutingLogic(),   
                                   (members++chopSticks).map(akka.routing.ActorRefRoutee(_)))
-```
+```scala
 
 이렇게 하면 모든 젓가락과 철학자를 포함하는 라우터를 만들 수 있다.
 
 이제 이를 사용해 메시지를 보내는 부분은 다음과 같다.
-```
+```scala
 router.route("tick", sender())
 ```
 
 `route` 메서드는 첫번째 인자로 메시지, 두번째 인자로 송신객체를 받는다. 여기서는 코디가 받은 메시지를 송신했던 객체를 다시 송신객체로 보낸다. 
 
 이를 반영한 `DiningRoom` 전체 코드는 다음과 같다.
-```
+```scala
 class DinningRoom(val noOfMember: Int) extends Actor {
   assert(noOfMember >= 2)
   
@@ -227,7 +227,7 @@ class DinningRoom(val noOfMember: Int) extends Actor {
 ```
 
 ## 전체 소스
-여기까지 모두 적용한 소스는 다음과 같다. 역시 [PISActors리포](https://github.com/enshahar/PISActors)에 소스가 있다. 파일 이름은 DiningRandomWithBecomeAndBroadcast.scala이다.
+여기까지 모두 적용한 소스는 [PISActors리포](https://github.com/enshahar/PISActors)에 있다. 파일 이름은 DiningRandomWithBecomeAndBroadcast.scala이다.
 
 ## 결론
 
